@@ -58,7 +58,7 @@ class Api(object):
         return '<Api[{0}] at {1}>'.format(self.code, id(self))
 
     def search(self, term):
-        url = self._build_url(term);print url
+        url = self._build_url(term)
         data = urllib2.urlopen(url).read()
         try:
             return self._parse_result(data)
