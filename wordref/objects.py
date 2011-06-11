@@ -90,7 +90,7 @@ class Translation(object):
 
     def __repr__(self):
         return '<Translation[{0}>{1}] object at {2}>'.format(self.original.term,
-                                                             self.first.term,
+                                                             ','.join(map(str, self.translations)),
                                                              hex(id(self)))
 
 
@@ -103,6 +103,9 @@ class Term(object):
 
     def __repr__(self):
         return '<Term[{0}] object at {1}>'.format(self.term, hex(id(self)))
+
+    def __str__(self):
+        return unicode(self.term)
 
     def _get_values(self, kwargs):
         def _get(item):

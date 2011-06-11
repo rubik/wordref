@@ -6,10 +6,34 @@
 '''
 
 
+import sys
 import json
 import urllib2
+try:
+    from PyQt4 import QtGui, QtCore, QtWebKit
+except ImportError:
+    try:
+        from PySide import QtGui, QtCore, QtWebKit
+    except ImportError:
+        sys.exit('You must have PyQt4 or PySide installed to work with wordref. This is due to WordReference API, which requires Javascript evaluation.')
 
 from objects import Result, Category, Translation, Term
+
+## Function to render an HTML page with Javascript
+def render(url):
+    class _Render(QtWebKit.QWebPage):
+        def __init__(self, url):
+            self.app = QtGui.QApplication(sys.argv)
+            QtWebKit.QWebPage.__init__(self)
+            self.loadFinished.connect(self._loadFinished)
+            self.mainFrame().load(QtCore.QUrl(url))
+            self.app.exec_()
+        def _loadFinished(self, result):
+            self.frame = self.mainFrame()
+            self.app.quit()
+
+    r = _Render(url)
+    return unicode(r.frame.toHtml())
 
 
 DICTIONARIES = [
@@ -29,13 +53,13 @@ DICTIONARIES = [
     'tr'
 ]
 
-TEST_DATA = '''{"term0":{"PrincipalTranslations":{"0":{"OriginalTerm":{"term":"key","POS":"n","sense":"for a lock","usage":""},"FirstTranslation":{"term":"chiave","POS":"nf","sense":""},"Note":""},"1":{"OriginalTerm":{"term":"key","POS":"n","sense":"for a code","usage":""},"FirstTranslation":{"term":"parola chiave","POS":"nf","sense":""},"SecondTranslation":{"term":"password","POS":"nf","sense":""},"Note":""},"2":{"OriginalTerm":{"term":"key","POS":"n","sense":"on a typewriter, keyboard","usage":""},"FirstTranslation":{"term":"tasto","POS":"nm","sense":""},"Note":""},"3":{"OriginalTerm":{"term":"key","POS":"n","sense":"music: D major, etc.","usage":""},"FirstTranslation":{"term":"chiave","POS":"nf","sense":"musica"},"Note":""},"4":{"OriginalTerm":{"term":"key","POS":"n","sense":"tone of a voice","usage":""},"FirstTranslation":{"term":"tono","POS":"nm","sense":""},"Note":""},"5":{"OriginalTerm":{"term":"key","POS":"adj","sense":"most important","usage":""},"FirstTranslation":{"term":"chiave","POS":"nf","sense":""},"Note":""}},"AdditionalTranslations":{"0":{"OriginalTerm":{"term":"key","POS":"n","sense":"for a map","usage":""},"FirstTranslation":{"term":"scala","POS":"nf","sense":""},"Note":""},"1":{"OriginalTerm":{"term":"key","POS":"n","sense":"dictionary","usage":""},"FirstTranslation":{"term":"legenda, chiave","POS":"nf","sense":""},"Note":""},"2":{"OriginalTerm":{"term":"key","POS":"n","sense":"for a problem, solution","usage":""},"FirstTranslation":{"term":"chiave","POS":"nf","sense":""},"Note":""},"3":{"OriginalTerm":{"term":"key","POS":"n","sense":"on a piano, etc.","usage":""},"FirstTranslation":{"term":"tasto","POS":"nm","sense":""},"Note":""},"4":{"OriginalTerm":{"term":"key","POS":"n","sense":"on a mechanism, for winding","usage":""},"FirstTranslation":{"term":"chiavetta","POS":"nf","sense":""},"Note":""},"5":{"OriginalTerm":{"term":"key","POS":"n","sense":"means of access","usage":""},"FirstTranslation":{"term":"chiave giusta","POS":"nf","sense":""},"SecondTranslation":{"term":"fattore chiave","POS":"nm","sense":""},"Note":""},"6":{"OriginalTerm":{"term":"key","POS":"n","sense":"style, tone","usage":""},"FirstTranslation":{"term":"stile","POS":"nm","sense":""},"SecondTranslation":{"term":"tono","POS":"nm","sense":""},"Note":""},"7":{"OriginalTerm":{"term":"key","POS":"n","sense":"keystone","usage":""},"FirstTranslation":{"term":"chiave di volta","POS":"nf","sense":""},"Note":""},"8":{"OriginalTerm":{"term":"key","POS":"n","sense":"island reef","usage":""},"FirstTranslation":{"term":"scogliera","POS":"nf","sense":""},"Note":""},"9":{"OriginalTerm":{"term":"key","POS":"vtr","sense":"type","usage":""},"FirstTranslation":{"term":"digitare","POS":"vtr","sense":""},"Note":""},"10":{"OriginalTerm":{"term":"key","POS":"vtr","sense":"lock","usage":""},"FirstTranslation":{"term":"inchiavare","POS":"vtr","sense":"raro, antiquato"},"SecondTranslation":{"term":"chiudere a chiave","POS":"vtr","sense":""},"Note":""},"11":{"OriginalTerm":{"term":"key","POS":"vtr","sense":"set pitch of musical instrument","usage":""},"FirstTranslation":{"term":"accordare","POS":"vtr","sense":""},"Note":""},"12":{"OriginalTerm":{"term":"key","POS":"vtr","sense":"cross-reference","usage":""},"FirstTranslation":{"term":"inserire","POS":"vtr","sense":""},"Note":""}}},"original":{"Compounds":{"0":{"OriginalTerm":{"term":"cross keys","POS":"","sense":"","usage":""},"FirstTranslation":{"term":"chiavi","POS":"","sense":""},"Note":""},"1":{"OriginalTerm":{"term":"piano keys","POS":"","sense":"","usage":""},"FirstTranslation":{"term":"tasti del pianoforte","POS":"","sense":""},"Note":""}}},"Lines":"End Reached","END":true}'''
+
 
 class WordRefError(Exception):
     '''Base class for all wordref's errors.'''
 
 class ApiError(WordRefError):
-    '''Raised when an error is thrown by the API.'''
+    '''Raised when user request cannot be accomplished by the API.'''
 
 class ParsingError(WordRefError):
     '''Raised when errors occur during the parsing.'''
@@ -46,7 +70,9 @@ class Api(object):
         self.user_id = user_id
         if len(code) == 2:
             raise ApiError('Monolingual dictionaries are not available yet')
-        if code == 'esen':
+        elif len(code) != 4:
+            raise ApiError('Wrong dictionary code')
+        elif code == 'esen':
             raise ApiError('Spanish - English dictionary does not support Json API')
         
         self.code = code
@@ -62,8 +88,21 @@ class Api(object):
 
     def search(self, term):
         url = self._build_url(term)
-        data = urllib2.urlopen(url).read()
-        return self._parse_result(TEST_DATA)
+        data = render(urllib2.urlopen(url).read())
+        print url, data
+        try:
+            start = data.index('<{')
+            end = data.index('</pre')
+        except ValueError:
+            raise WordRefError('Cannot parse JSON: malformed response')
+        try:
+            return self._parse_result(data[start:end])
+        except Exception as e:
+            try:
+                msg = e.args[0]
+            except IndexError:
+                msg = repr(e)
+            raise ParsingError(msg)
 
     def _build_url(self, term):
         if self.api_version is None:
