@@ -1,0 +1,37 @@
+wordref
+=======
+
+Python wrapper of the WordReference API: http://www.wordreference.com/docs/api.aspx
+
+Example
+=======
+
+>>> from wordref import Api
+>>> a = Api('your-user-id-here', 'enit')
+>>> result = a.search('python')
+>>> result
+<Result [2 categories]>
+>>> result.principal 
+(<Translation[python>pitone] object at 0xa5dec6c>,
+ <Translation[python>ossesso] object at 0xa5debcc>)
+
+>>> result.compounds
+(<Translation[ball python>pitone reale] object at 0xa5deacc>,)
+>>> t = result.principal[0]
+>>> t
+<Translation[python>pitone] object at 0xa5dec6c>
+>>> t.first
+<Term[pitone] object at 0xa5dee8c>
+>>> t.original
+<Term[python] object at 0xa5de8ec>
+>>> t.original.term
+u'python'
+>>> t.original.pos
+>>> t.first
+<Term[pitone] object at 0xa5dee8c>
+>>> t.first.term
+u'pitone'
+>>> t.first.pos
+u'nm'
+>>> t.note
+None
