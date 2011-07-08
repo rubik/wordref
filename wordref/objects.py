@@ -36,40 +36,36 @@ from collections import namedtuple
 __all__ = ['Result', 'Category', 'Translation', 'Term']
 
 _result = namedtuple('Result', 'categories')
-_category = namedtuple('Category', 'name translations')
 
 
-class Result(_result):
+class Result(object):
+
+    def __init__(self, r={}):
+        self._r = r
+
+    def add(self, name, category):
+        self._r[name] = category
+
     @ property
     def principal(self):
-        return self._choose('PrincipalTranslations')
+        return self._r['PrincipalTranslations']
 
     @ property
     def additional(self):
-        return self._choose('AdditionalTranslations')
+        return self._r['AdditionalTranslations']
 
     @ property
     def compounds(self):
-        return self._choose('Compounds')
+        return self._r['Compounds']
 
     def __repr__(self):
-        return '<Result object at {0}>'.format(hex(id(self)))
-
-    def _choose(self, name):
-        for c in self.categories:
-            if c.name == name:
-                return c
-
-
-class Category(_category):
-    def __repr__(self):
-        return '<Category[{0}] object at {1}>'.format(self.name, hex(id(self)))
-
-    def __len__(self):
-        return len(self._translations)
+        n = len(self._r)
+        suffix = ['ies', 'y'][n == 1]
+        return '<Result [{0} categor{1}]>'.format(n, suffix)
 
 
 class Translation(object):
+
     def __init__(self, t):
         self.original = Term(**t['OriginalTerm'])
         self.first_t = Term(**t['FirstTranslation'])

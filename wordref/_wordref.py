@@ -9,49 +9,9 @@
 import sys
 import json
 import urllib2
-try:
-    from PyQt4 import QtGui, QtCore, QtWebKit
-except ImportError:
-    try:
-        from PySide import QtGui, QtCore, QtWebKit
-    except ImportError:
-        sys.exit('You must have PyQt4 or PySide installed to work with wordref. This is due to WordReference API, which requires Javascript evaluation.')
 
-from objects import Result, Category, Translation, Term
-
-## Function to render an HTML page with Javascript
-def render(url):
-    class _Render(QtWebKit.QWebPage):
-        def __init__(self, url):
-            self.app = QtGui.QApplication(sys.argv)
-            QtWebKit.QWebPage.__init__(self)
-            self.loadFinished.connect(self._loadFinished)
-            self.mainFrame().load(QtCore.QUrl(url))
-            self.app.exec_()
-        def _loadFinished(self, result):
-            self.frame = self.mainFrame()
-            self.app.quit()
-
-    r = _Render(url)
-    return unicode(r.frame.toHtml())
-
-
-DICTIONARIES = [
-    'ar',
-    'zh',
-    'cz',
-    'en',
-    'fr',
-    'gr',
-    'it',
-    'ja',
-    'ko',
-    'pl',
-    'pt',
-    'ro',
-    'es',
-    'tr'
-]
+from objects import Result, Translation, Term
+from render import render
 
 
 
@@ -88,15 +48,9 @@ class Api(object):
 
     def search(self, term):
         url = self._build_url(term)
-        data = render(urllib2.urlopen(url).read())
-        print url, data
+        data = urllib2.urlopen(url).read()
         try:
-            start = data.index('<{')
-            end = data.index('</pre')
-        except ValueError:
-            raise WordRefError('Cannot parse JSON: malformed response')
-        try:
-            return self._parse_result(data[start:end])
+            return self._parse_result(data)
         except Exception as e:
             try:
                 msg = e.args[0]
@@ -113,13 +67,13 @@ class Api(object):
 
     def _parse_result(self, data):
         data = json.loads(data)
-        result = []
+        result = Result()
         for term, categories in data.iteritems():
             if term in ('Lines', 'END'):
                 continue
             for category, translations in data[term].iteritems():
-                tr = []
-                for _, trans in translations.iteritems():
-                    tr.append(Translation(trans))
-                result.append(Category(category, tr))
-        return Result(result)
+                tr = {}
+                for i, trans in translations.iteritems():
+                    tr[Translation(trans)] = i
+                result.add(category, tuple(sorted(tr.keys(), key=lambda i: tr[i])))
+        return result
