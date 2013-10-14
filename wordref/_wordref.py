@@ -11,7 +11,6 @@ import json
 import urllib2
 
 from objects import Result, Translation, Term
-from render import render
 
 
 
